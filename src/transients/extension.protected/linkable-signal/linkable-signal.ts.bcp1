@@ -1,0 +1,112 @@
+import type { UndoFunction } from '@lirx/utils';
+import { SignalError } from '../../../signal-error/signal-error.js';
+import type { SignalValueOrError } from '../../../signal-value-or-error/signal-value-or-error.js';
+import { SignalWatcher } from '../../../watchers/signal-watcher/signal-watcher.js';
+import type { SignalTrait } from '../../core/signal/traits/signal.trait.js';
+import type { SignalOptions } from '../../core/signal/traits/types/signal-options.js';
+import { Transient } from '../../core/transient/transient.js';
+import { WritableSignal } from '../../core/writable-signal/writable-signal.js';
+import { SignalLinkedError } from './errors/signal-linked-error.js';
+import { SignalLockedError } from './errors/signal-locked-error.js';
+import type { LinkableSignalTrait } from './traits/linkable-signal.trait.js';
+import type { LinkableSignalLinkOptions } from './traits/methods/linkable-signal.link.trait.js';
+
+// https://github.com/angular/angular/pull/58189/files#diff-16f850f5f33730f7b3574e2137ab8750f5f90be010f6d2899b7b7de0a4d11648
+
+export class LinkableSignal<GValue>
+  extends WritableSignal<GValue>
+  implements LinkableSignalTrait<GValue>
+{
+  static override unset<GValue>(options?: SignalOptions<GValue>): LinkableSignal<GValue> {
+    return new LinkableSignal<GValue>(SignalError.UNSET, options);
+  }
+
+  static override thrown<GValue>(
+    error: unknown,
+    options?: SignalOptions<GValue>,
+  ): LinkableSignal<GValue> {
+    return new LinkableSignal<GValue>(new SignalError(error), options);
+  }
+
+  #linkedWith: SignalTrait<GValue> | undefined;
+  #unlink: UndoFunction | undefined;
+  #locked: boolean;
+
+  constructor(initialValue: SignalValueOrError<GValue>, options?: SignalOptions<GValue>) {
+    super(initialValue, options);
+    this.#locked = false;
+  }
+
+  override get(): GValue {
+    if (this.#linkedWith !== undefined) {
+      Transient.runOutsideContext((): void => {
+        super.set(this.#linkedWith!.get());
+      });
+    }
+
+    return super.get();
+  }
+
+  override set(value: SignalValueOrError<GValue>): void {
+    this.#throwIfLinked();
+    super.set(value);
+  }
+
+  #throwIfLinked(): void {
+    if (this.linked) {
+      throw new SignalLinkedError();
+    }
+  }
+
+  #throwIfLocked(): void {
+    if (this.locked) {
+      throw new SignalLockedError();
+    }
+  }
+
+  get linked(): boolean {
+    return this.#linkedWith !== undefined;
+  }
+
+  get locked(): boolean {
+    return this.#locked;
+  }
+
+  link(
+    signal: SignalTrait<GValue>,
+    { lock = false }: LinkableSignalLinkOptions = {},
+  ): UndoFunction {
+    this.#throwIfLinked();
+
+    this.#linkedWith = signal;
+    this.#locked = lock;
+
+    const watcher: SignalWatcher<GValue> = new SignalWatcher<GValue>(
+      signal,
+      (value: SignalValueOrError<GValue>): void => {
+        super.set(value);
+      },
+    );
+
+    let active: boolean = true;
+
+    return (this.#unlink = (): void => {
+      if (active) {
+        active = false;
+        watcher.destroy();
+        this.#linkedWith = undefined;
+        this.#unlink = undefined;
+        this.#locked = false;
+      }
+    });
+  }
+
+  unlink(): void {
+    this.#throwIfLocked();
+    this.#unlink?.();
+  }
+
+  [Symbol.dispose](): void {
+    this.#unlink?.();
+  }
+}

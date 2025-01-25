@@ -1,0 +1,13 @@
+import { Signal } from '../../../primitives/signal/signal.js';
+import type { SignalTrait } from '../../../primitives/signal/traits/signal.trait.js';
+import { isSignalFnc } from '../../signal/is/is-signal-fnc.js';
+import { SIGNAL } from '../../signal/signal.symbol.js';
+import type { SignalOrValue } from './signal-or-value.js';
+
+export function signalOrValueToSignal<GValue>(input: SignalOrValue<GValue>): SignalTrait<GValue> {
+  return (
+    isSignalFnc(input) ? input[SIGNAL]
+    : input instanceof Signal ? input
+    : new Signal()
+  );
+}

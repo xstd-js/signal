@@ -1,0 +1,135 @@
+import {
+  defaultNotificationObserver,
+  IDefaultInNotificationsUnion,
+  IObservable,
+} from '@lirx/observable';
+import { UndoFunction } from '@lirx/utils';
+import { EventDispatcher } from '../../../../../event-emitter/src/sync/event-emitter/event-dispatcher.js';
+import { SignalError } from '../../../signal-error/signal-error.js';
+import { SignalValueOrError } from '../../../signal-value-or-error/signal-value-or-error.js';
+import { Signal } from '../../core/signal/signal.js';
+import { SetSignalValue } from '../../core/signal/traits/types/set-signal-value.js';
+import { TransientActivity } from '../../core/transient/traits/types/transient-activity.js';
+import { Transient } from '../../core/transient/transient.js';
+import { SignalFromObservableTrait } from './traits/signal-from-observable.trait.js';
+import {
+  SignalFromNotificationsObservableOptions,
+  SignalFromObservableOptions,
+} from './traits/types/signal-from-observable-options.js';
+
+export class SignalFromObservable<GValue>
+  extends Signal<GValue>
+  implements SignalFromObservableTrait<GValue>, Disposable
+{
+  readonly #value$: IObservable<GValue> | IObservable<IDefaultInNotificationsUnion<GValue>>;
+  readonly #mode: 'value' | 'notification';
+  readonly #unsubscribeOnError: boolean;
+  #unsubscribe: UndoFunction | undefined;
+
+  readonly #set: SetSignalValue<GValue>;
+  readonly #tracker: EventDispatcher<void>;
+
+  constructor(value$: IObservable<GValue>, options?: SignalFromObservableOptions<GValue>);
+  constructor(
+    value$: IObservable<IDefaultInNotificationsUnion<GValue>>,
+    options: SignalFromNotificationsObservableOptions<GValue>,
+  );
+  constructor(
+    value$: IObservable<GValue> | IObservable<IDefaultInNotificationsUnion<GValue>>,
+    options?:
+      | SignalFromObservableOptions<GValue>
+      | SignalFromNotificationsObservableOptions<GValue>,
+  ) {
+    let _set!: SetSignalValue<GValue>;
+    super(
+      options && 'initialValue' in options ? options.initialValue! : SignalError.UNSET,
+      (set: SetSignalValue<GValue>): void => {
+        _set = set;
+      },
+      options,
+    );
+    this.#value$ = value$;
+    this.#mode = options?.mode ?? 'value';
+    this.#unsubscribeOnError = (options as any)?.unsubscribeOnError ?? true;
+    this.#set = _set;
+    this.#tracker = new EventDispatcher<void>();
+
+    this.activate(true);
+  }
+
+  #setValue(value: SignalValueOrError<GValue>): void {
+    if (Transient.isInContext()) {
+      throw new Error('The signal cannot be written is this context.');
+    }
+    if (this.#set(value)) {
+      this.#tracker.dispatch();
+    }
+  }
+
+  /**
+   * @see TransientTrackActivityTrait
+   */
+  override trackActivity(onActivity: TransientActivity): UndoFunction {
+    return this.#tracker.emitter.listen(onActivity);
+  }
+
+  /**
+   * @see SignalFromObservableActiveTrait
+   */
+  get active(): boolean {
+    return this.#unsubscribe !== undefined;
+  }
+
+  /**
+   * @see SignalFromObservableActivateTrait
+   */
+  activate(active?: boolean): void {
+    if (active !== this.active) {
+      if (active) {
+        if (this.#mode === 'value') {
+          this.#unsubscribe = (this.#value$ as IObservable<GValue>)((value: GValue): void => {
+            this.#setValue(value);
+          });
+        } else {
+          let unsubscribed: boolean = false;
+
+          const unsubscribe = (): void => {
+            unsubscribed = true;
+            if (this.#unsubscribe !== undefined) {
+              this.#unsubscribe();
+              this.#unsubscribe = undefined;
+            }
+          };
+
+          this.#unsubscribe = (this.#value$ as IObservable<IDefaultInNotificationsUnion<GValue>>)(
+            defaultNotificationObserver<GValue>(
+              /* next */ (value: GValue): void => {
+                this.#setValue(value);
+              },
+              /* complete */ (): void => {
+                unsubscribe();
+              },
+              /* error */ (error: unknown): void => {
+                if (this.#unsubscribeOnError) {
+                  unsubscribe();
+                }
+                this.#setValue(new SignalError(error));
+              },
+            ),
+          );
+
+          if (unsubscribed) {
+            unsubscribe();
+          }
+        }
+      } else {
+        this.#unsubscribe!();
+        this.#unsubscribe = undefined;
+      }
+    }
+  }
+
+  [Symbol.dispose](): void {
+    this.activate(false);
+  }
+}

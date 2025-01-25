@@ -1,0 +1,109 @@
+import { EventDispatcher } from '@xstd/event-emitter';
+import { type UndoFunction } from '@xstd/undo-function';
+import { SignalError } from '../../../signal-error/signal-error.js';
+import { type ComputedSignalOptions } from '../../core/computed-signal/traits/types/computed-signal-options.js';
+import { Signal } from '../../core/signal/signal.js';
+import { type SetSignalValue } from '../../core/signal/traits/types/set-signal-value.js';
+import { type UpdateSignalValue } from '../../core/signal/traits/types/update-signal-value.js';
+import { OptimizedAggregateTransient } from '../../core/transient/aggregate/optimized/optimized-aggregate-transient.js';
+import { type TransientSnapshotChanged } from '../../core/transient/traits/types/transient-snapshot-changed.js';
+
+export enum AsyncComputedStatus {
+  Idle,
+  Loading,
+  Reloading,
+  Resolved,
+  Local,
+}
+
+// https://push-based.io/article/everything-you-need-to-know-about-the-resource-api
+// https://github.com/angular/angular/pull/58255/files
+// https://github.com/angular/angular/pull/58189/files#diff-16f850f5f33730f7b3574e2137ab8750f5f90be010f6d2899b7b7de0a4d11648
+
+export interface AsyncComputationFunction<GValue> {
+  (signal: AbortSignal): Promise<GValue> | GValue;
+}
+
+export class AsyncComputedSignal<GValue> extends Signal<GValue> {
+  // /**
+  //  * The current value of the `Resource`, or `undefined` if there is no current value.
+  //  */
+  // readonly value: Signal<T | undefined>;
+  //
+  // /**
+  //  * The current status of the `Resource`, which describes what the resource is currently doing and
+  //  * what can be expected of its `value`.
+  //  */
+  // readonly status: Signal<ResourceStatus>;
+  //
+  // /**
+  //  * When in the `error` state, this returns the last known error from the `Resource`.
+  //  */
+  // readonly error: Signal<unknown>;
+  //
+  // /**
+  //  * Whether this resource is loading a new value (or reloading the existing one).
+  //  */
+  // readonly isLoading: Signal<boolean>;
+  //
+  // /**
+  //  * Whether this resource has a valid current value.
+  //  *
+  //  * This function is reactive.
+  //  */
+  // hasValue(): this is Resource<T> & { value: Signal<T> };
+  //
+  // /**
+  //  * Instructs the resource to re-load any asynchronous dependency it may have.
+  //  *
+  //  * Note that the resource will not enter its reloading state until the actual backend request is
+  //  * made.
+  //  *
+  //  * @returns true if a reload was initiated, false if a reload was unnecessary or unsupported
+  //  */
+  // reload(): boolean;
+
+  static defaultUntrackDelay: number = 2_000;
+
+  readonly #set: SetSignalValue<GValue>;
+  readonly #tracker: EventDispatcher<void>;
+  #watchersCount: number;
+
+  #snapshotChanged: TransientSnapshotChanged | undefined;
+  #aggregateTransient: OptimizedAggregateTransient | undefined;
+  #untrackActivity: UndoFunction | undefined;
+
+  readonly #computation: AsyncComputationFunction<GValue>;
+  #computing: boolean;
+
+  readonly #releaseDelay: number;
+  #releaseTimer: any | undefined;
+
+  constructor(
+    computation: AsyncComputationFunction<GValue>,
+    options?: ComputedSignalOptions<GValue>,
+  ) {
+    let _set!: SetSignalValue<GValue>;
+
+    super(
+      SignalError.UNSET,
+      (set: SetSignalValue<GValue>): UpdateSignalValue => {
+        _set = set;
+        return (): void => {
+          this.#updateValue();
+        };
+      },
+      options,
+    );
+    this.#set = _set;
+
+    this.#set = _set;
+    this.#tracker = new EventDispatcher<void>();
+    this.#watchersCount = 0;
+
+    this.#computation = computation;
+    this.#computing = false;
+
+    this.#releaseDelay = options?.untrackDelay ?? AsyncComputedSignal.defaultUntrackDelay;
+  }
+}
