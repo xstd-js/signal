@@ -268,4 +268,30 @@ describe('Effect', (): void => {
       });
     });
   });
+
+  it('should run just once if stopped while signal changes', async () => {
+    return new Promise<void>((resolve: () => void, reject: (reason: any) => void): void => {
+      const a = new WritableSignal(1);
+      expect(a.get()).toBe(1);
+
+      let effectCount: number = 0;
+
+      const effect = new Effect(() => {
+        effectCount++;
+        if (effectCount === 1) {
+          expect(a.get()).toBe(1);
+          queueMicrotask(() => {
+            a.set(2);
+            effect.stop();
+            // ensure no errors happen if we stop twice
+            effect.stop();
+
+            setTimeout(resolve, 10);
+          });
+        } else {
+          reject(new Error('Called more than once.'));
+        }
+      });
+    });
+  });
 });

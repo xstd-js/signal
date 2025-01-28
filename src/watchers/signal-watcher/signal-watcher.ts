@@ -88,10 +88,8 @@ export class SignalWatcher<GValue> implements SignalWatcherTrait {
    * Untracks any previously tracked activity.
    */
   #doUntrackActivity(): void {
-    if (this.#untrackActivity !== undefined) {
-      this.#untrackActivity();
-      this.#untrackActivity = undefined;
-    }
+    this.#untrackActivity!();
+    this.#untrackActivity = undefined;
   }
 
   #update(): void {

@@ -1,7 +1,7 @@
 import { EQUAL_FUNCTION_STRICT_EQUAL, type EqualFunction } from '@xstd/equal-function';
 import { noop } from '@xstd/noop';
-import { SignalError } from '../../../signal-error/signal-error.js';
 import { areSignalValueOrErrorDifferent } from '../../../signal-value-or-error/are-signal-value-or-error-different.js';
+import { resolveSignalValueOrError } from '../../../signal-value-or-error/resolve-signal-value-or-error.js';
 import { type SignalValueOrError } from '../../../signal-value-or-error/signal-value-or-error.js';
 import { type TransientSnapshotChanged } from '../transient/traits/types/transient-snapshot-changed.js';
 import { Transient } from '../transient/transient.js';
@@ -69,9 +69,6 @@ export abstract class Signal<GValue> extends Transient implements SignalTrait<GV
   get(): GValue {
     super.capture();
     this.#updateValue();
-    if (this.#value instanceof SignalError) {
-      throw this.#value.error;
-    }
-    return this.#value;
+    return resolveSignalValueOrError<GValue>(this.#value);
   }
 }

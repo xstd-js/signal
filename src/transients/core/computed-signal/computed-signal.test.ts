@@ -299,6 +299,11 @@ describe('ComputedSignal', () => {
             },
           );
 
+          // ensures that `untracking` twice does not cause issues.
+          const untrack = b.trackActivity(() => {});
+          untrack();
+          untrack();
+
           expect(tracked).toBe(0);
           expect(b.get()).toBe(1);
           expect(tracked).toBe(1);

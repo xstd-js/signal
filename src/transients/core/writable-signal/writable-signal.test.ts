@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReadonlySignal } from '../readonly-signal/readonly-signal.js';
+import { Transient } from '../transient/transient.js';
 import { WritableSignal } from './writable-signal.js';
 
 describe('WritableSignal', () => {
@@ -97,10 +98,30 @@ describe('WritableSignal', () => {
         });
 
         it('should be observable', () => {
-          // TODO watch
-          expect(b.get()).toBe(1);
+          const captured: Transient[] = [];
+
+          Transient.runInContext(
+            (transient: Transient): void => {
+              captured.push(transient);
+            },
+            (): void => {
+              expect(() => b.capture()).toThrow();
+              expect(b.get()).toBe(1);
+            },
+          );
+
+          expect(captured.length).toBe(1);
+
+          const spy = vi.fn();
+          const changed = b.takeSnapshot();
+          expect(changed()).toBe(false);
+
+          b.trackActivity(spy);
+          expect(spy).toHaveBeenCalledTimes(0);
           a.set(2);
           expect(b.get()).toBe(2);
+          expect(spy).toHaveBeenCalledTimes(1);
+          expect(changed()).toBe(true);
         });
       });
     });

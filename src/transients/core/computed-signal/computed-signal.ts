@@ -108,13 +108,11 @@ export class ComputedSignal<GValue> extends Signal<GValue> implements ComputedSi
    * Schedules a `release()` after `releaseDelay` milliseconds.
    */
   #scheduleRelease(): void {
-    if (this.#releaseDelay >= 0) {
-      this.#abortScheduledReleaseTimer();
-      if (this.#watchersCount === 0) {
-        this.#releaseTimer = setTimeout((): void => {
-          this.#release();
-        }, this.#releaseDelay);
-      }
+    this.#abortScheduledReleaseTimer();
+    if (this.#watchersCount === 0) {
+      this.#releaseTimer = setTimeout((): void => {
+        this.#release();
+      }, this.#releaseDelay);
     }
   }
 
