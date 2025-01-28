@@ -24,4 +24,4 @@ npm install @xstd/signal --save
 
 ## 📜 Documentation
 
-TODO
+https://xstd-js.github.io/signal
