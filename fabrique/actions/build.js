@@ -103,6 +103,7 @@ async function buildTypescriptIndexFile(cwd = process.cwd()) {
           path.endsWith('.ts') &&
           !path.endsWith('.spec.ts') &&
           !path.endsWith('.test.ts') &&
+          !path.endsWith('.bench.ts') &&
           !path.endsWith('.private.ts') &&
           !path.endsWith('.protected.ts')
         );
@@ -186,7 +187,12 @@ async function copyTypescriptFiles(sourcePath, destinationPath) {
     relativeTo: sourcePath,
     pick: (path, { isFile }) => {
       if (isFile) {
-        return path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.test.ts');
+        return (
+          path.endsWith('.ts') &&
+          !path.endsWith('.spec.ts') &&
+          !path.endsWith('.test.ts') &&
+          !path.endsWith('.bench.ts')
+        );
       } else {
         return true;
       }

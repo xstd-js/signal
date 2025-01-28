@@ -8,8 +8,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.{test,bench,protected,private}.ts',
-        'src/**/*.private/**/*.ts',
-        'src/**/*.protected/**/*.ts',
+        'src/**/*.{protected,private}/**/*.ts',
         // TODO add tests later
         'src/functions/**/*.ts',
       ],
