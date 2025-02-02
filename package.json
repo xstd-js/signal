@@ -1,6 +1,6 @@
 {
   "name": "@xstd/signal",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "main": "./index.js",
   "scripts": {
@@ -27,7 +27,7 @@
     "url": "git+https://github.com/xstd-js/signal.git"
   },
   "devDependencies": {
-    "@types/node": "^22.12.0",
+    "@types/node": "^22.13.0",
     "@vitest/coverage-istanbul": "^3.0.4",
     "alien-signals": "^1.0.1",
     "prettier": "^3.4.2",
@@ -38,10 +38,11 @@
   },
   "packageManager": "yarn@4.6.0",
   "fabrique": {
-    "version": "0.2.8",
+    "version": "0.3.0",
     "type": "lib"
   },
   "dependencies": {
+    "@xstd/custom-error": "^0.1.0",
     "@xstd/equal-function": "^0.0.1",
     "@xstd/event-emitter": "^0.0.1",
     "@xstd/noop": "^1.0.0",

@@ -1,3 +1,4 @@
+import { noop } from '@xstd/noop';
 import { type UndoFunction } from '@xstd/undo-function';
 import { resolveSignalValueOrError } from '../../../signal-value-or-error/resolve-signal-value-or-error.js';
 import { type SignalValueOrError } from '../../../signal-value-or-error/signal-value-or-error.js';
@@ -21,7 +22,7 @@ export class ConstSignal<GValue> extends Transient implements SignalTrait<GValue
   }
 
   trackActivity(onActivity: TransientActivity): UndoFunction {
-    return (): void => {};
+    return noop;
   }
 
   get(): GValue {

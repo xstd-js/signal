@@ -49,13 +49,17 @@ export class LinkableSignal<GValue> extends Transient implements LinkableSignalT
 
   #throwIfLinked(): void {
     if (this.#linked) {
-      throw new SignalLinkedError();
+      throw new SignalLinkedError({
+        message: 'Signal already linked.',
+      });
     }
   }
 
   #throwIfLocked(): void {
     if (this.#locked) {
-      throw new SignalLockedError();
+      throw new SignalLockedError({
+        message: 'Signal locked.',
+      });
     }
   }
 

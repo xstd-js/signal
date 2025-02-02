@@ -9,8 +9,6 @@ export default defineConfig({
       exclude: [
         'src/**/*.{test,bench,protected,private}.ts',
         'src/**/*.{protected,private}/**/*.ts',
-        // TODO add tests later
-        'src/functions/**/*.ts',
       ],
       thresholds: {
         100: true,

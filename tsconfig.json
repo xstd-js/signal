@@ -28,9 +28,6 @@
     ]
   },
   "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "src/**/*.{spec,test,bench}.ts"
+    "src/**/*.ts"
   ]
 }

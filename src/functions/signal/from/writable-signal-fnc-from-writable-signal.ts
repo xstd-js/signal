@@ -1,11 +1,11 @@
-import { type SignalValueOrError } from '../../signal-value-or-error/signal-value-or-error.js';
-import { type SignalUpdateFunctionCallback } from '../../transients/core/writable-signal/traits/types/signal-update-function-callback.js';
-import { type WritableSignal } from '../../transients/core/writable-signal/writable-signal.js';
-import { SIGNAL } from './signal.symbol.js';
-import { type SignalFnc } from './types/signal-fnc.js';
-import { type WritableSignalFnc } from './types/writable-signal-fnc.js';
+import { type SignalValueOrError } from '../../../signal-value-or-error/signal-value-or-error.js';
+import { type SignalUpdateFunctionCallback } from '../../../transients/core/writable-signal/traits/types/signal-update-function-callback.js';
+import { type WritableSignal } from '../../../transients/core/writable-signal/writable-signal.js';
+import { SIGNAL } from '../signal.symbol.js';
+import { type SignalFnc } from '../types/signal-fnc.js';
+import { type WritableSignalFnc } from '../types/writable-signal-fnc.js';
 
-export function writableSignalToWritableSignalFnc<GValue>(
+export function writableSignalFncFromWritableSignal<GValue>(
   input: WritableSignal<GValue>,
 ): WritableSignalFnc<GValue> {
   const output: WritableSignalFnc<GValue> = ((): GValue =>

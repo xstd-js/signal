@@ -7,6 +7,8 @@ export interface LinkableSignalLinkOptions {
 
 /**
  * Links this Signal with `signal`.
+ *
+ * This Signal will have the exact same value and behaviour as `signal`.
  */
 export interface LinkableSignalLinkTrait<GValue> {
   link(signal: SignalTrait<GValue>, options?: LinkableSignalLinkOptions): UndoFunction;
