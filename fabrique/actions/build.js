@@ -224,7 +224,7 @@ async function buildTypescriptProtectedIndexFile(sourcePath) {
       if (isFile) {
         return (
           isTsProtectedFile(path) ||
-          (isInPrivateDirectory(path) &&
+          (isInProtectedDirectory(path) &&
             isTsFile(path) &&
             !(isTsTestOrSpecFile(path) || isTsBenchFile(path) || isTsPrivateFile(path)))
         );
