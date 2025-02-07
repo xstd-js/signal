@@ -1,6 +1,6 @@
 {
   "name": "@xstd/signal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "./index.js",
   "scripts": {
@@ -38,7 +38,7 @@
   },
   "packageManager": "yarn@4.6.0",
   "fabrique": {
-    "version": "0.3.0",
+    "version": "0.3.1",
     "type": "lib"
   },
   "dependencies": {
