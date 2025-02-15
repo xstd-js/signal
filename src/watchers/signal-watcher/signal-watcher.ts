@@ -9,12 +9,14 @@ import { type SignalWatcherCleanUpFunction } from './traits/types/signal-watcher
 import { type SignalWatcherFunction } from './traits/types/signal-watcher-function.js';
 import { type SignalWatcherOnErrorFunction } from './traits/types/signal-watcher-on-error-function.js';
 import { type SignalWatcherOnValueFunction } from './traits/types/signal-watcher-on-value-function.js';
+import { type SignalWatcherOptions } from './traits/types/signal-watcher-options.js';
 
 export class SignalWatcher<GValue> implements SignalWatcherTrait {
-  static watch<GValue>(
+  static value<GValue>(
     signal: SignalTrait<GValue>,
     onValue: SignalWatcherOnValueFunction<GValue>,
     onError: SignalWatcherOnErrorFunction = this.LOG_ERROR,
+    options?: SignalWatcherOptions,
   ): SignalWatcher<GValue> {
     return new SignalWatcher<GValue>(
       signal,
@@ -25,6 +27,7 @@ export class SignalWatcher<GValue> implements SignalWatcherTrait {
           return onValue(value);
         }
       },
+      options,
     );
   }
 
@@ -42,7 +45,11 @@ export class SignalWatcher<GValue> implements SignalWatcherTrait {
   #snapshotChanged: TransientSnapshotChanged | undefined;
   #untrackActivity: UndoFunction | undefined;
 
-  constructor(signal: SignalTrait<GValue>, signalWatcherFunction: SignalWatcherFunction<GValue>) {
+  constructor(
+    signal: SignalTrait<GValue>,
+    signalWatcherFunction: SignalWatcherFunction<GValue>,
+    { skipCurrentValue = false }: SignalWatcherOptions = {},
+  ) {
     if (Transient.isInContext()) {
       throw new Error('Cannot create an signal watcher in this context.');
     }
@@ -51,7 +58,12 @@ export class SignalWatcher<GValue> implements SignalWatcherTrait {
     this.#activityScheduled = false;
     this.#disposed = false;
     this.#trackActivity();
-    this.#update();
+
+    if (skipCurrentValue) {
+      this.#snapshotChanged = this.#signal.takeSnapshot();
+    } else {
+      this.#update();
+    }
   }
 
   /**

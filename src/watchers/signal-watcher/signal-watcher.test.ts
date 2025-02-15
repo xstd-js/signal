@@ -38,7 +38,7 @@ describe('SignalWatcher', (): void => {
             return new Promise<void>((resolve: () => void): void => {
               let watcherCount: number = 0;
 
-              SignalWatcher.watch(input, (value: number): void => {
+              SignalWatcher.value(input, (value: number): void => {
                 watcherCount++;
 
                 if (watcherCount === 1) {
@@ -58,7 +58,7 @@ describe('SignalWatcher', (): void => {
             return new Promise<void>((resolve: () => void, reject: () => void): void => {
               let watcherCount: number = 0;
 
-              SignalWatcher.watch(
+              SignalWatcher.value(
                 input,
                 (value: number): void => {
                   watcherCount++;
@@ -90,21 +90,8 @@ describe('SignalWatcher', (): void => {
     });
   });
 
-  describe('unordered', (): void => {
-    describe('errors', (): void => {
-      it('should prevent SignalWatcher in computed', (): void => {
-        let computedCount: number = 0;
-        const a = new ComputedSignal((): number => {
-          computedCount++;
-          expect(() => new SignalWatcher(new WritableSignal(5), () => {})).toThrow();
-          return 2;
-        });
-        expect(a.get()).toBe(2);
-        expect(computedCount).toBe(1);
-      });
-    });
-
-    describe('for writable signal', (): void => {
+  describe('new(...)', (): void => {
+    describe('from a writable signal', (): void => {
       it('should be called immediately', (): void => {
         const a = new WritableSignal(1);
         expect(a.get()).toBe(1);
@@ -117,6 +104,29 @@ describe('SignalWatcher', (): void => {
         });
 
         expect(watcherCount).toBe(1);
+      });
+
+      it('should not be called immediately if skipCurrentValue is true', (): Promise<void> => {
+        return new Promise<void>((resolve: () => void): void => {
+          const a = new WritableSignal(1);
+          expect(a.get()).toBe(1);
+
+          let watcherCount: number = 0;
+
+          new SignalWatcher(
+            a,
+            (value: SignalValueOrError<number>): void => {
+              watcherCount++;
+              expect(value).toBe(2);
+              resolve();
+            },
+            { skipCurrentValue: true },
+          );
+
+          expect(watcherCount).toBe(0);
+
+          a.set(2);
+        });
       });
 
       it('should support errors', (): void => {
@@ -156,7 +166,7 @@ describe('SignalWatcher', (): void => {
           set(0);
           get();
 
-          SignalWatcher.watch(a, (value: number): SignalWatcherCleanUpFunction | void => {
+          SignalWatcher.value(a, (value: number): SignalWatcherCleanUpFunction | void => {
             watcherCount++;
             get(value);
 
@@ -186,7 +196,7 @@ describe('SignalWatcher', (): void => {
 
           let watcherCount: number = 0;
 
-          const watcher = SignalWatcher.watch(a, (value: number): void => {
+          const watcher = SignalWatcher.value(a, (value: number): void => {
             watcherCount++;
 
             if (watcherCount === 1) {
@@ -205,7 +215,7 @@ describe('SignalWatcher', (): void => {
       });
     });
 
-    describe('for computed signal', (): void => {
+    describe('from a computed signal', (): void => {
       it('should be called immediately', (): Promise<void> => {
         return new Promise<void>((resolve: () => void): void => {
           const a = new WritableSignal(1);
@@ -214,7 +224,7 @@ describe('SignalWatcher', (): void => {
           const b = new ComputedSignal(() => a.get() + 1);
           expect(b.get()).toBe(2);
 
-          SignalWatcher.watch(b, (value: number): void => {
+          SignalWatcher.value(b, (value: number): void => {
             expect(value).toBe(2);
             resolve();
           });
@@ -244,7 +254,7 @@ describe('SignalWatcher', (): void => {
           set(0);
           get();
 
-          SignalWatcher.watch(b, (value: number): SignalWatcherCleanUpFunction | void => {
+          SignalWatcher.value(b, (value: number): SignalWatcherCleanUpFunction | void => {
             watcherCount++;
             get(value);
 
@@ -267,6 +277,21 @@ describe('SignalWatcher', (): void => {
         });
       });
     });
+  });
+
+  describe('unordered', (): void => {
+    describe('errors', (): void => {
+      it('should prevent SignalWatcher in computed', (): void => {
+        let computedCount: number = 0;
+        const a = new ComputedSignal((): number => {
+          computedCount++;
+          expect(() => new SignalWatcher(new WritableSignal(5), () => {})).toThrow();
+          return 2;
+        });
+        expect(a.get()).toBe(2);
+        expect(computedCount).toBe(1);
+      });
+    });
 
     it("should be called only once is computed value doesn't change", (): Promise<void> => {
       return new Promise<void>((resolve: () => void, reject: (reason: any) => void): void => {
@@ -278,7 +303,7 @@ describe('SignalWatcher', (): void => {
 
         let watcherCount: number = 0;
 
-        SignalWatcher.watch(b, (value: boolean): void => {
+        SignalWatcher.value(b, (value: boolean): void => {
           watcherCount++;
           if (watcherCount === 1) {
             expect(value).toBe(true);
@@ -303,7 +328,7 @@ describe('SignalWatcher', (): void => {
 
         let watcherCount: number = 0;
 
-        SignalWatcher.watch(a, (value: number) => {
+        SignalWatcher.value(a, (value: number) => {
           watcherCount++;
           if (watcherCount === 1) {
             expect(value).toBe(1);
@@ -330,7 +355,7 @@ describe('SignalWatcher', (): void => {
 
         let watcherCount: number = 0;
 
-        const watcher = SignalWatcher.watch(a, (value: number) => {
+        const watcher = SignalWatcher.value(a, (value: number) => {
           watcherCount++;
           if (watcherCount === 1) {
             expect(value).toBe(1);

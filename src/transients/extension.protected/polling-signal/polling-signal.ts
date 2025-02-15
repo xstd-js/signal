@@ -13,10 +13,7 @@ import { type PollingSignalOptions } from './traits/types/polling-signal-options
 import { type PollingSignalReadFunction } from './traits/types/polling-signal-read-function.js';
 import { type PollingSignalTrigger } from './traits/types/polling-signal-trigger.js';
 
-export class PollingSignal<GValue>
-  extends Signal<GValue>
-  implements PollingSignalTrait<GValue>, Disposable
-{
+export class PollingSignal<GValue> extends Signal<GValue> implements PollingSignalTrait<GValue> {
   static readonly #triggerDispatcher: EventDispatcher<void> = new EventDispatcher<void>();
 
   static trigger(): void {
@@ -43,6 +40,7 @@ export class PollingSignal<GValue>
   readonly #trigger: PollingSignalTrigger;
   readonly #set: SetSignalValue<GValue>;
   readonly #tracker: EventDispatcher<void>;
+  #trackedCount: number;
   #unsubscribe: UndoFunction | undefined;
 
   constructor(read: PollingSignalReadFunction<GValue>, options?: PollingSignalOptions<GValue>) {
@@ -60,28 +58,41 @@ export class PollingSignal<GValue>
     this.#read = read;
     this.#set = _set;
     this.#tracker = new EventDispatcher<void>();
+    this.#trackedCount = 0;
 
     this.#trigger =
       options?.trigger ??
       ((onTrigger: PollingSignalOnTrigger): UndoFunction => {
         return PollingSignal.#triggerDispatcher.emitter.listen(onTrigger);
       });
-
-    this.activate(true);
   }
 
   /**
    * @see TransientTrackActivityTrait
    */
   override trackActivity(onActivity: TransientActivity): UndoFunction {
-    return this.#tracker.emitter.listen(onActivity);
-  }
+    const untrackActivity: UndoFunction = this.#tracker.emitter.listen(onActivity);
+    let tracked: boolean = true;
 
-  /**
-   * @see PollingSignalActiveTrait
-   */
-  get active(): boolean {
-    return this.#unsubscribe !== undefined;
+    this.#trackedCount++;
+    if (this.#trackedCount === 1) {
+      this.#unsubscribe = this.#trigger((): void => {
+        this.#updateValue();
+      });
+    }
+
+    return (): void => {
+      if (tracked) {
+        tracked = false;
+        untrackActivity();
+
+        this.#trackedCount--;
+        if (this.#trackedCount === 0) {
+          this.#unsubscribe!();
+          this.#unsubscribe = undefined;
+        }
+      }
+    };
   }
 
   #updateValue(): void {
@@ -96,25 +107,5 @@ export class PollingSignal<GValue>
     if (this.#set(value)) {
       this.#tracker.dispatch();
     }
-  }
-
-  /**
-   * @see SignalFromObservableActivateTrait
-   */
-  activate(active?: boolean): void {
-    if (active !== this.active) {
-      if (active) {
-        this.#unsubscribe = this.#trigger((): void => {
-          this.#updateValue();
-        });
-      } else {
-        this.#unsubscribe!();
-        this.#unsubscribe = undefined;
-      }
-    }
-  }
-
-  [Symbol.dispose](): void {
-    this.activate(false);
   }
 }

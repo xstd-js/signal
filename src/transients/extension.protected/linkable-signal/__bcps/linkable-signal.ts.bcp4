@@ -33,7 +33,8 @@ export class LinkableSignal<GValue> extends Transient implements LinkableSignalT
   readonly #linkedWith: WritableSignal<SignalTrait<GValue>>;
   readonly #computedSignal: ComputedSignal<GValue>;
 
-  #unlink: UndoFunction | undefined;
+  #linked: boolean;
+  #unlink: UndoFunction;
   #locked: boolean;
 
   constructor(initialValue: SignalValueOrError<GValue>, options?: LinkableSignalOptions<GValue>) {
@@ -43,11 +44,12 @@ export class LinkableSignal<GValue> extends Transient implements LinkableSignalT
     this.#linkedWith = new WritableSignal<SignalTrait<GValue>>(this.#defaultSignal);
     this.#computedSignal = ComputedSignal.unroll<GValue>(this.#linkedWith, options);
 
+    this.#linked = false;
     this.#locked = false;
   }
 
   #throwIfLinked(): void {
-    if (this.#unlink !== undefined) {
+    if (this.#linked) {
       throw new SignalLinkedError({
         message: 'Signal already linked.',
       });
@@ -125,7 +127,7 @@ export class LinkableSignal<GValue> extends Transient implements LinkableSignalT
    * @see LinkableSignalLinkedTrait
    */
   get linked(): boolean {
-    return this.#unlink !== undefined;
+    return this.#linked;
   }
 
   /**
@@ -144,28 +146,33 @@ export class LinkableSignal<GValue> extends Transient implements LinkableSignalT
   ): UndoFunction {
     this.#throwIfLinked();
 
-    this.#locked = lock;
     this.#linkedWith.set(signal);
+    this.#linked = true;
+    this.#locked = lock;
 
     let active: boolean = true;
 
-    return (this.#unlink = (): void => {
+    return (): void => {
       if (active) {
         active = false;
-        this.#unlink = undefined;
-        this.#locked = false;
-        Transient.runOutsideContext((): void => {
-          let value: SignalValueOrError<GValue>;
-          try {
-            value = this.#computedSignal.get();
-          } catch (error: unknown) {
-            value = new SignalError(error);
-          }
-          this.#defaultSignal.set(value);
-        });
-        this.#linkedWith.set(this.#defaultSignal);
+        this.#unlink();
       }
+    };
+  }
+
+  #unlink(): void {
+    this.#linked = false;
+    this.#locked = false;
+    Transient.runOutsideContext((): void => {
+      let value: SignalValueOrError<GValue>;
+      try {
+        value = this.#computedSignal.get();
+      } catch (error: unknown) {
+        value = new SignalError(error);
+      }
+      this.#defaultSignal.set(value);
     });
+    this.#linkedWith.set(this.#defaultSignal);
   }
 
   /**
@@ -173,6 +180,6 @@ export class LinkableSignal<GValue> extends Transient implements LinkableSignalT
    */
   unlink(): void {
     this.#throwIfLocked();
-    this.#unlink?.();
+    this.#unlink();
   }
 }

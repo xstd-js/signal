@@ -3,6 +3,7 @@ import { SignalWatcher } from '../../watchers/signal-watcher/signal-watcher.js';
 import { type SignalWatcherFunction } from '../../watchers/signal-watcher/traits/types/signal-watcher-function.js';
 import { type SignalWatcherOnErrorFunction } from '../../watchers/signal-watcher/traits/types/signal-watcher-on-error-function.js';
 import { type SignalWatcherOnValueFunction } from '../../watchers/signal-watcher/traits/types/signal-watcher-on-value-function.js';
+import type { SignalWatcherOptions } from '../../watchers/signal-watcher/traits/types/signal-watcher-options.js';
 import { signalOrSignalFncToSignal } from '../signal-or/signal-or-signal-fnc/signal-or-signal-fnc-to-signal.js';
 import { type SignalOrSignalFnc } from '../signal-or/signal-or-signal-fnc/signal-or-signal-fnc.js';
 import { type SignalWatcherFncConstructor } from './types/writable-signal-fnc-constructor.js';
@@ -24,11 +25,13 @@ watch.value = <GValue>(
   signal: SignalOrSignalFnc<GValue>,
   onValue: SignalWatcherOnValueFunction<GValue>,
   onError?: SignalWatcherOnErrorFunction,
+  options?: SignalWatcherOptions,
 ): UndoFunction => {
-  const watcher = SignalWatcher.watch<GValue>(
+  const watcher = SignalWatcher.value<GValue>(
     signalOrSignalFncToSignal<GValue>(signal),
     onValue,
     onError,
+    options,
   );
   return (): void => {
     return watcher.stop();
