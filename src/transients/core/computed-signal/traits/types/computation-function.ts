@@ -1,3 +1,3 @@
 export interface ComputationFunction<GValue> {
-  (): GValue;
+  (signal: AbortSignal): Promise<GValue> | GValue;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ComputedSignal } from '../../transients/core/computed-signal/computed-signal.js';
+import { AsyncSignalLoadingError } from '../../transients/core/computed-signal/errors/async-signal-loading-error.js';
 import { WritableSignal } from '../../transients/core/writable-signal/writable-signal.js';
 import { Effect } from './effect.js';
 import { type EffectCleanUpFunction } from './traits/types/effect-clean-up-function.js';
@@ -171,6 +172,40 @@ describe('Effect', (): void => {
         set(2);
         set(3);
         expect(effectCount).toBe(1);
+      });
+    });
+
+    describe('for async computed signal', (): void => {
+      it('should be called when an async computed signal change', (): Promise<void> => {
+        return new Promise<void>(
+          (resolve: () => void, reject: (reason?: unknown) => void): void => {
+            let effectCount: number = 0;
+
+            const a = new WritableSignal(1);
+            expect(a.get()).toBe(1);
+
+            const b = new ComputedSignal(async () => a.get() + 1);
+
+            new Effect((): void => {
+              effectCount++;
+              if (effectCount === 1) {
+                expect(() => b.get()).toThrow(AsyncSignalLoadingError);
+              } else if (effectCount === 2) {
+                expect(b.get()).toBe(2);
+                queueMicrotask(() => {
+                  a.set(4);
+                });
+              } else if (effectCount === 3) {
+                expect(() => b.get()).toThrow(AsyncSignalLoadingError);
+              } else if (effectCount === 4) {
+                expect(b.get()).toBe(5);
+                resolve();
+              } else {
+                reject(new Error(`unexpected effectCount ${effectCount}`));
+              }
+            });
+          },
+        );
       });
     });
   });

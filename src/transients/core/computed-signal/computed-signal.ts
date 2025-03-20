@@ -10,6 +10,7 @@ import { OptimizedAggregateTransient } from '../transient/aggregate/optimized/op
 import { type TransientActivity } from '../transient/traits/types/transient-activity.js';
 import { type TransientSnapshotChanged } from '../transient/traits/types/transient-snapshot-changed.js';
 import { Transient } from '../transient/transient.js';
+import { AsyncSignalLoadingError } from './errors/async-signal-loading-error.js';
 import { type ComputedSignalTrait } from './traits/computed-signal.trait.js';
 import { type ComputationFunction } from './traits/types/computation-function.js';
 import { type ComputedSignalOptions } from './traits/types/computed-signal-options.js';
@@ -40,6 +41,9 @@ export class ComputedSignal<GValue> extends Signal<GValue> implements ComputedSi
   readonly #computation: ComputationFunction<GValue>;
   #computing: boolean;
 
+  #isAsyncComputation: boolean;
+  #controller: AbortController | undefined;
+
   readonly #releaseDelay: number;
   #releaseTimer: any | undefined;
 
@@ -62,6 +66,8 @@ export class ComputedSignal<GValue> extends Signal<GValue> implements ComputedSi
 
     this.#computation = computation;
     this.#computing = false;
+
+    this.#isAsyncComputation = false;
 
     this.#releaseDelay = options?.untrackDelay ?? ComputedSignal.defaultUntrackDelay;
   }
@@ -172,17 +178,31 @@ export class ComputedSignal<GValue> extends Signal<GValue> implements ComputedSi
     // start of computation
     this.#computing = true;
 
+    // creates an AbortController for this context.
+    if (this.#isAsyncComputation) {
+      // console.assert(this.#controller !== undefined);
+      this.#controller!.abort();
+      this.#controller = new AbortController();
+    } else if (this.#controller === undefined) {
+      this.#controller = new AbortController();
+    }
+
     // releases any previous `aggregateTransient`
     this.#releaseAggregateTransient();
 
     // runs the computation function and captures the used transients
     const list: Transient[] = [];
-    let value: SignalValueOrError<GValue>;
+    let value: SignalValueOrError<Promise<GValue> | GValue>;
 
     try {
-      value = Transient.runInContext((reactive: Transient): void => {
-        list.push(reactive);
-      }, this.#computation);
+      value = Transient.runInContext<Promise<GValue> | GValue>(
+        (reactive: Transient): void => {
+          list.push(reactive);
+        },
+        (): Promise<GValue> | GValue => {
+          return this.#computation(this.#controller!.signal);
+        },
+      );
     } catch (error: unknown) {
       value = new SignalError(error);
     }
@@ -199,6 +219,40 @@ export class ComputedSignal<GValue> extends Signal<GValue> implements ComputedSi
     // end of computation
     this.#computing = false;
 
+    // test if it is an async computation
+    if (value instanceof Promise) {
+      this.#isAsyncComputation = true;
+
+      const signal: AbortSignal = this.#controller!.signal;
+
+      const promise: Promise<SignalValueOrError<GValue>> = value.then(
+        (value: GValue): GValue => {
+          return value;
+        },
+        (error: unknown): SignalError => {
+          return new SignalError(error);
+        },
+      );
+
+      value = new SignalError(new AsyncSignalLoadingError());
+
+      promise.then((value: SignalValueOrError<GValue>): void => {
+        if (!signal.aborted) {
+          this.#isAsyncComputation = false;
+
+          // updates the value
+          this.#setValue(value);
+        }
+      });
+    } else {
+      this.#isAsyncComputation = false;
+    }
+
+    // updates the value
+    this.#setValue(value);
+  }
+
+  #setValue(value: SignalValueOrError<GValue>): void {
     // updates the value
     if (this.#set(value)) {
       // and notifies the watchers in case of changes

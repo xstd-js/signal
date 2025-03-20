@@ -4,6 +4,7 @@ import { testTools } from '../../../../fabrique/test/tools.js';
 import { type TransientActivity } from '../transient/traits/types/transient-activity.js';
 import { WritableSignal } from '../writable-signal/writable-signal.js';
 import { ComputedSignal } from './computed-signal.js';
+import { AsyncSignalLoadingError } from './errors/async-signal-loading-error.js';
 
 const sleep = testTools.sleep;
 
@@ -382,6 +383,100 @@ describe('ComputedSignal', () => {
           expect(count_b).toBe(4);
           expect(count_c).toBe(4);
         });
+      });
+    });
+
+    describe('async behaviour', () => {
+      it('should return the correct computed value from 2 writable signals placed in an async function', async () => {
+        const a = new WritableSignal(1);
+        expect(a.get()).toBe(1);
+
+        const b = new WritableSignal(2);
+        expect(b.get()).toBe(2);
+
+        const c = new ComputedSignal(async () => a.get() + b.get());
+        expect(() => c.get()).toThrow(AsyncSignalLoadingError);
+
+        await sleep(0);
+        expect(c.get()).toBe(3);
+
+        a.set(3);
+        expect(() => c.get()).toThrow(AsyncSignalLoadingError);
+
+        await sleep(0);
+        expect(c.get()).toBe(5);
+
+        b.set(1);
+        expect(() => c.get()).toThrow(AsyncSignalLoadingError);
+
+        await sleep(0);
+        expect(c.get()).toBe(4);
+      });
+
+      it('should support async rejected computation', async () => {
+        const a = new WritableSignal(1);
+        expect(a.get()).toBe(1);
+
+        const b = new WritableSignal(2);
+        expect(b.get()).toBe(2);
+
+        const ERROR = new Error('Please increase: a + b.');
+
+        const c = new ComputedSignal(async () => {
+          const c: number = a.get() + b.get();
+          if (c <= 3) {
+            throw ERROR;
+          }
+          return c;
+        });
+        expect(() => c.get()).toThrow(AsyncSignalLoadingError);
+
+        await sleep(0);
+        expect(() => c.get()).toThrow(ERROR);
+
+        a.set(3);
+        expect(() => c.get()).toThrow(AsyncSignalLoadingError);
+
+        await sleep(0);
+        expect(c.get()).toBe(5);
+      });
+
+      it('should abort async pending computation', async () => {
+        const a = new WritableSignal(1);
+        expect(a.get()).toBe(1);
+
+        let computedCount: number = 0;
+
+        const b = new ComputedSignal(async (signal: AbortSignal): Promise<number> => {
+          computedCount++;
+          const _a: number = a.get();
+          expect(signal.aborted).toBe(false);
+          await sleep(100);
+
+          if (computedCount === 1) {
+            expect(signal.aborted).toBe(true);
+          } else if (computedCount === 2) {
+            expect(signal.aborted).toBe(false);
+          }
+
+          return _a;
+        });
+
+        expect(computedCount).toBe(0);
+        expect(() => b.get()).toThrow(AsyncSignalLoadingError);
+        expect(computedCount).toBe(1);
+
+        await sleep(0);
+        expect(() => b.get()).toThrow(AsyncSignalLoadingError);
+        expect(computedCount).toBe(1);
+
+        a.set(2);
+        expect(computedCount).toBe(1);
+        expect(() => b.get()).toThrow(AsyncSignalLoadingError);
+        expect(computedCount).toBe(2);
+
+        await sleep(150);
+        expect(b.get()).toBe(2);
       });
     });
   });
