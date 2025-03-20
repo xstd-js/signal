@@ -21,7 +21,7 @@ export class ConstSignal<GValue> extends Transient implements SignalTrait<GValue
     };
   }
 
-  trackActivity(onActivity: TransientActivity): UndoFunction {
+  trackActivity(_onActivity: TransientActivity): UndoFunction {
     return noop;
   }
 

@@ -16,13 +16,13 @@ export interface LinkableSignalWithPollingStartPollingOptions
     Omit<PollingSignalOptions<any>, keyof LinkableSignalWithPollingOptions<any>> {}
 
 export class LinkableSignalWithPolling<GValue> extends LinkableSignal<GValue> {
-  static unset<GValue>(options?: LinkableSignalOptions<GValue>): LinkableSignal<GValue> {
+  static override unset<GValue>(_options?: LinkableSignalOptions<GValue>): LinkableSignal<GValue> {
     throw new Error('LinkableSignalWithPolling.unset forbidden.');
   }
 
-  static thrown<GValue>(
-    error: unknown,
-    options?: LinkableSignalOptions<GValue>,
+  static override thrown<GValue>(
+    _error: unknown,
+    _options?: LinkableSignalOptions<GValue>,
   ): LinkableSignal<GValue> {
     throw new Error('LinkableSignalWithPolling.thrown forbidden.');
   }
