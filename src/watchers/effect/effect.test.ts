@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { AsyncSignalLoadingError } from '../../signal-error/errors/async-signal-loading-error.js';
 import { ComputedSignal } from '../../transients/core/computed-signal/computed-signal.js';
-import { AsyncSignalLoadingError } from '../../transients/core/computed-signal/errors/async-signal-loading-error.js';
 import { WritableSignal } from '../../transients/core/writable-signal/writable-signal.js';
 import { Effect } from './effect.js';
 import { type EffectCleanUpFunction } from './traits/types/effect-clean-up-function.js';

@@ -1,10 +1,10 @@
 import { type UndoFunction } from '@xstd/undo-function';
 import { describe, expect, it, vi } from 'vitest';
 import { testTools } from '../../../../fabrique/test/tools.js';
+import { AsyncSignalLoadingError } from '../../../signal-error/errors/async-signal-loading-error.js';
 import { type TransientActivity } from '../transient/traits/types/transient-activity.js';
 import { WritableSignal } from '../writable-signal/writable-signal.js';
 import { ComputedSignal } from './computed-signal.js';
-import { AsyncSignalLoadingError } from './errors/async-signal-loading-error.js';
 
 const sleep = testTools.sleep;
 

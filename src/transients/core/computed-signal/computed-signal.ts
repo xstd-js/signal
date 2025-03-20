@@ -3,14 +3,13 @@ import { type UndoFunction } from '@xstd/undo-function';
 import { SignalError } from '../../../signal-error/signal-error.js';
 import { type SignalValueOrError } from '../../../signal-value-or-error/signal-value-or-error.js';
 import { Signal } from '../signal/signal.js';
-import { SignalTrait } from '../signal/traits/signal.trait.js';
+import { type SignalTrait } from '../signal/traits/signal.trait.js';
 import { type SetSignalValue } from '../signal/traits/types/set-signal-value.js';
 import { type UpdateSignalValue } from '../signal/traits/types/update-signal-value.js';
 import { OptimizedAggregateTransient } from '../transient/aggregate/optimized/optimized-aggregate-transient.js';
 import { type TransientActivity } from '../transient/traits/types/transient-activity.js';
 import { type TransientSnapshotChanged } from '../transient/traits/types/transient-snapshot-changed.js';
 import { Transient } from '../transient/transient.js';
-import { AsyncSignalLoadingError } from './errors/async-signal-loading-error.js';
 import { type ComputedSignalTrait } from './traits/computed-signal.trait.js';
 import { type ComputationFunction } from './traits/types/computation-function.js';
 import { type ComputedSignalOptions } from './traits/types/computed-signal-options.js';
@@ -234,7 +233,7 @@ export class ComputedSignal<GValue> extends Signal<GValue> implements ComputedSi
         },
       );
 
-      value = new SignalError(new AsyncSignalLoadingError());
+      value = SignalError.LOADING;
 
       promise.then((value: SignalValueOrError<GValue>): void => {
         if (!signal.aborted) {
