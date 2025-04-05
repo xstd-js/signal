@@ -96,7 +96,7 @@ describe('OptimizedAggregateTransient', () => {
   });
 
   it('should be able to untrack activity', () => {
-    const changed = aggregated.takeSnapshot();
+    aggregated.takeSnapshot();
     const activitySpy = vi.fn();
     const untrack = aggregated.trackActivity(activitySpy);
 

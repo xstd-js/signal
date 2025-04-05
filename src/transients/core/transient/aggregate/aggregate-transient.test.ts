@@ -45,7 +45,7 @@ describe('AggregateTransient', () => {
     describe('trackActivity', () => {
       it('should be called', () => {
         const onActivity = vi.fn<TransientActivity>();
-        const stopActivityTracking: UndoFunction = aggregateTransient.trackActivity(onActivity);
+        aggregateTransient.trackActivity(onActivity);
 
         expect(onActivity).not.toHaveBeenCalled();
 
