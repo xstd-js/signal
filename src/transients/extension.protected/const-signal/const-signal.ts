@@ -26,7 +26,7 @@ export class ConstSignal<GValue> extends Transient implements SignalTrait<GValue
   }
 
   get(): GValue {
-    super.capture(); // INFO: not necessary
+    // super.capture(); // INFO: not necessary
     return resolveSignalValueOrError<GValue>(this.#value);
   }
 }

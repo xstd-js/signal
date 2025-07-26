@@ -20,12 +20,39 @@ import { type ComputedSignalOptions } from './traits/types/computed-signal-optio
 export class ComputedSignal<GValue> extends Signal<GValue> implements ComputedSignalTrait<GValue> {
   static defaultUntrackDelay: number = 2_000;
 
+  // static unroll<GValue>(
+  //   signal: SignalTrait<SignalTrait<GValue>>,
+  //   options?: ComputedSignalOptions<GValue>,
+  // ): ComputedSignal<GValue> {
+  //   return new ComputedSignal((): GValue => {
+  //     return signal.get().get();
+  //   }, options);
+  // }
+
+  // static unroll<GValue>(
+  //   unroll: (() => SignalTrait<GValue>) | SignalTrait<SignalTrait<GValue>>,
+  //   options?: ComputedSignalOptions<GValue>,
+  // ): ComputedSignal<GValue> {
+  //   if (typeof unroll !== 'function') {
+  //     const signal: SignalTrait<SignalTrait<GValue>> = unroll;
+  //     unroll = (): SignalTrait<GValue> => {
+  //       return signal.get();
+  //     };
+  //   }
+  //   return new ComputedSignal((): GValue => {
+  //     return unroll().get();
+  //   }, options);
+  // }
+
   static unroll<GValue>(
-    signal: SignalTrait<SignalTrait<GValue>>,
+    unroll: SignalTrait<SignalTrait<GValue>> | (() => SignalTrait<GValue>),
     options?: ComputedSignalOptions<GValue>,
   ): ComputedSignal<GValue> {
+    if (typeof unroll === 'function') {
+      unroll = new ComputedSignal(unroll);
+    }
     return new ComputedSignal((): GValue => {
-      return signal.get().get();
+      return unroll.get().get();
     }, options);
   }
 
