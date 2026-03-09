@@ -3,7 +3,7 @@ import { ROOT_PATH } from '../constants/root-path.constant.js';
 import { cmd } from '../helpers/cmd.js';
 
 /**
- * Published the lib.
+ * Publishes the lib.
  * @param {{ mode?: 'dev' | 'rc' | 'prod'; }} options
  * @return {Promise<void>}
  */
@@ -18,6 +18,7 @@ export async function publish({ mode = 'prod' } = {}) {
    *   registry?: string;
    *   access?: 'public';
    *   tag?: string;
+   *   extra?: any;
    * }}
    */
   const options = {};
@@ -32,8 +33,12 @@ export async function publish({ mode = 'prod' } = {}) {
     options.registry = 'http://localhost:4873';
     options.tag = 'dev';
   } else {
+    args.unshift(`--//registry.npmjs.org/:_authToken=$NPM_TOKEN`);
     options.registry = 'https://registry.npmjs.org';
     options.access = 'public';
+    options.extra = {
+      shell: true,
+    };
 
     if (mode === 'rc') {
       options.tag = 'rc';
@@ -56,7 +61,10 @@ export async function publish({ mode = 'prod' } = {}) {
     args.push('--tag', options.tag);
   }
 
-  await cmd('npm', args, { cwd: resolve(packagePath) });
+  await cmd('npm', args, {
+    ...options.extra,
+    cwd: resolve(packagePath),
+  });
 
   console.log('Library published with success !');
 }

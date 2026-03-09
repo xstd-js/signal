@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { testTools } from '../../../fabrique/test/tools.js';
+import { testTools } from '../../../../fabrique/test/tools.js';
 import { SignalError } from '../../signal-error/signal-error.js';
 import { signal } from '../signal/signal.js';
 import { watch } from './watch.js';

@@ -40,7 +40,7 @@ describe('WritableSignal', () => {
       });
     });
 
-    describe.only('.set(...)', () => {
+    describe('.set(...)', () => {
       const a = new WritableSignal(1);
       const b = signal(1);
       const c = alien_signal(1);
