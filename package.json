@@ -1,6 +1,6 @@
 {
   "name": "@xstd/signal",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Signal implementation",
   "keywords": [
@@ -37,7 +37,7 @@
     "@types/node": "^25.9.3",
     "@vitest/coverage-istanbul": "^4.1.8",
     "alien-signals": "^3.2.1",
-    "fabrique": "2.0.2",
+    "fabrique": "2.0.3",
     "prettier": "^3.8.4",
     "prettier-plugin-organize-imports": "^4.3.0",
     "typedoc": "^0.28.19",
@@ -50,7 +50,7 @@
     "@xstd/undo-function": "^1.0.0"
   },
   "fabrique": {
-    "version": "2.0.2",
+    "version": "2.0.3",
     "type": "lib"
   }
 }

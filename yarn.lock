@@ -962,7 +962,7 @@ __metadata:
     "@xstd/equal-function": "npm:^0.0.1"
     "@xstd/undo-function": "npm:^1.0.0"
     alien-signals: "npm:^3.2.1"
-    fabrique: "npm:2.0.2"
+    fabrique: "npm:2.0.3"
     prettier: "npm:^3.8.4"
     prettier-plugin-organize-imports: "npm:^4.3.0"
     typedoc: "npm:^0.28.19"
@@ -1299,9 +1299,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fabrique@npm:2.0.2":
-  version: 2.0.2
-  resolution: "fabrique@npm:2.0.2"
+"fabrique@npm:2.0.3":
+  version: 2.0.3
+  resolution: "fabrique@npm:2.0.3"
   dependencies:
     "@inquirer/prompts": "npm:^8.5.2"
     chalk: "npm:^5.6.2"
@@ -1309,7 +1309,7 @@ __metadata:
     zod: "npm:^4.4.3"
   bin:
     fabrique: src/cli/cli.js
-  checksum: 10c0/82d4d2a89b256d10c7029a071dce692e26f210ec8162d34f13b0344fcb64dfdcfd139f77538830bfb98579e72ae21fbf324f00f58c7bcc3609c9c3b664449562
+  checksum: 10c0/45aebdedcb95518898db58d10eae9eb884e9997e630bb8d8c6e4ba15e8e85bb3863fb0db079a33ae35b83755b7296bcdedb1498a296f5cbadee769c3ea2c02c3
   languageName: node
   linkType: hard
 
