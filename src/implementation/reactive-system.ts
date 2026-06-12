@@ -11,7 +11,7 @@ import type { Signal } from '../interfaces/signal/signal.ts';
 import type { WritableSignal } from '../interfaces/writable-signal/writable-signal.ts';
 
 // source: https://github.com/stackblitz/alien-signals/blob/master/src/index.ts
-// based on 3.1.2: https://github.com/stackblitz/alien-signals/blob/52142d981fddef13c57250d71aa6c7233bd94140/src/index.ts
+// based on 3.2.1 (Jun 10, 2026): https://github.com/stackblitz/alien-signals/blob/c00e63969bf261fc5dce31fae70cb9a90912b06e/src/index.ts
 
 /* REACTIVE SYSTEM */
 
@@ -23,6 +23,7 @@ const ReactiveFlags = Object.freeze({
   Recursed: 8,
   Dirty: 16,
   Pending: 32,
+  HasChildEffect: 64,
 });
 
 type ReactiveFlags = (typeof ReactiveFlags)[keyof typeof ReactiveFlags];
@@ -38,17 +39,33 @@ interface SignalNode<GValue> extends ReactiveValueNode<GValue> {
   readonlyOutputSignal: Signal<GValue> | undefined;
 }
 
+function isSignalNode(node: ReactiveNode): node is SignalNode<unknown> {
+  return 'currentValue' in node;
+}
+
 interface ComputedNode<GValue> extends ReactiveValueNode<GValue> {
-  readonly fn: RunComputed<GValue>;
+  readonly getter: RunComputed<GValue>;
 
   value: GValue | undefined;
 }
 
-interface EffectNode extends ReactiveNode {
-  readonly fn: RunEffect;
+function isComputedNode(node: ReactiveNode): node is ComputedNode<unknown> {
+  return 'getter' in node;
 }
 
+interface EffectNode extends ReactiveNode {
+  readonly fn: RunEffect;
+  cleanup: UndoFunction | undefined | void;
+}
+
+function isEffectNode(node: ReactiveNode): node is EffectNode {
+  return 'fn' in node;
+}
+
+interface EffectScopeNode extends ReactiveNode {}
+
 let cycle: number = 0;
+let runDepth: number = 0;
 let batchDepth: number = 0;
 let notifyIndex: number = 0;
 let queuedLength: number = 0;
@@ -57,12 +74,15 @@ let activeSub: ReactiveNode | undefined;
 const queued: (EffectNode | undefined)[] = [];
 
 const { link, unlink, propagate, checkDirty, shallowPropagate } = createReactiveSystem({
-  update(node: ReactiveValueNode<unknown>): boolean {
-    if (node.depsTail !== undefined) {
-      return updateComputedNode(node as ComputedNode<unknown>);
-    } else {
-      return updateSignalNode(node as SignalNode<unknown>);
+  update(node: SignalNode<unknown> | ComputedNode<unknown> | EffectScopeNode): boolean {
+    if (isComputedNode(node)) {
+      return updateComputedNode(node);
     }
+    if (isSignalNode(node)) {
+      return updateSignalNode(node);
+    }
+    node.flags = ReactiveFlags.Mutable;
+    return true;
   },
   notify(node: EffectNode): void {
     let insertIndex: number = queuedLength;
@@ -85,13 +105,20 @@ const { link, unlink, propagate, checkDirty, shallowPropagate } = createReactive
       queued[insertIndex] = left;
     }
   },
-  unwatched(node: ReactiveNode): void {
-    if (!(node.flags & ReactiveFlags.Mutable)) {
-      unwatchNode(node);
-    } else if (node.depsTail !== undefined) {
-      node.depsTail = undefined;
-      node.flags = ReactiveFlags.Mutable | ReactiveFlags.Dirty;
-      purgeDeps(node);
+  unwatched(
+    node: SignalNode<unknown> | ComputedNode<unknown> | EffectNode | EffectScopeNode,
+  ): void {
+    if (isComputedNode(node)) {
+      if (node.depsTail !== undefined) {
+        node.flags = ReactiveFlags.Mutable | ReactiveFlags.Dirty;
+        disposeAllDepsInReverse(node);
+      }
+    } else if (isSignalNode(node)) {
+      // Nothing to do for signals, they are always mutable and never dirty until pendingValue changes
+    } else if (isEffectNode(node)) {
+      stopEffect(node);
+    } else {
+      stopEffectScopeNode(node);
     }
   },
 });
@@ -115,13 +142,24 @@ function updateSignalNode(node: SignalNode<any>): boolean {
  * @alias updateComputed
  */
 function updateComputedNode(node: ComputedNode<any>): boolean {
-  ++cycle;
+  if (node.flags & ReactiveFlags.HasChildEffect) {
+    let link: Link | undefined = node.depsTail;
+    while (link !== undefined) {
+      const prev: Link | undefined = link.prevDep;
+      const dep: ReactiveNode = link.dep;
+      if (!isComputedNode(dep) && !isSignalNode(dep)) {
+        unlink(link, node);
+      }
+      link = prev;
+    }
+  }
   node.depsTail = undefined;
   node.flags = ReactiveFlags.Mutable | ReactiveFlags.RecursedCheck;
   const prevSub: ReactiveNode | undefined = setActiveSub(node);
   try {
+    ++cycle;
     const oldValue: unknown = node.value;
-    return !node.equal(oldValue, (node.value = node.fn()));
+    return !node.equal(oldValue, (node.value = node.getter()));
   } finally {
     activeSub = prevSub;
     node.flags &= ~ReactiveFlags.RecursedCheck;
@@ -138,32 +176,81 @@ function runEffectNode(node: EffectNode): void {
     flags & ReactiveFlags.Dirty ||
     (flags & ReactiveFlags.Pending && checkDirty(node.deps!, node))
   ) {
-    ++cycle;
+    if (flags & ReactiveFlags.HasChildEffect) {
+      let link: Link | undefined = node.depsTail;
+      while (link !== undefined) {
+        const prev: Link | undefined = link.prevDep;
+        const dep: ReactiveNode = link.dep;
+        if (!isComputedNode(dep) && !isSignalNode(dep)) {
+          unlink(link, node);
+        }
+        link = prev;
+      }
+    }
+    if (node.cleanup) {
+      runCleanup(node);
+      if (!node.flags) {
+        return;
+      }
+    }
     node.depsTail = undefined;
     node.flags = ReactiveFlags.Watching | ReactiveFlags.RecursedCheck;
     const prevSub: ReactiveNode | undefined = setActiveSub(node);
     try {
-      node.fn();
+      ++cycle;
+      ++runDepth;
+      node.cleanup = node.fn();
     } finally {
+      --runDepth;
       activeSub = prevSub;
       node.flags &= ~ReactiveFlags.RecursedCheck;
       purgeDeps(node);
     }
-  } else {
-    node.flags = ReactiveFlags.Watching;
+  } else if (node.deps !== undefined) {
+    node.flags = ReactiveFlags.Watching | (flags & ReactiveFlags.HasChildEffect);
+  }
+}
+
+function runCleanup(node: EffectNode): void {
+  const cleanup: UndoFunction = node.cleanup!;
+  node.cleanup = undefined;
+  const prevSub: ReactiveNode | undefined = activeSub;
+  activeSub = undefined;
+  try {
+    cleanup();
+  } finally {
+    activeSub = prevSub;
+  }
+}
+
+/**
+ * @alias effectOper
+ */
+function stopEffect(node: EffectNode): void {
+  stopEffectScopeNode(node);
+  if (node.cleanup) {
+    runCleanup(node);
   }
 }
 
 /**
  * @alias effectScopeOper
  */
-function unwatchNode(node: ReactiveNode): void {
-  node.depsTail = undefined;
+function stopEffectScopeNode(node: EffectScopeNode): void {
   node.flags = ReactiveFlags.None;
-  purgeDeps(node);
+  disposeAllDepsInReverse(node);
   const sub: Link | undefined = node.subs;
   if (sub !== undefined) {
     unlink(sub);
+  }
+}
+
+function disposeAllDepsInReverse(sub: ReactiveNode): void {
+  let link: Link | undefined = sub.depsTail;
+  while (link !== undefined) {
+    const prev: Link | undefined = link.prevDep;
+    unlink(link, sub);
+    link = prev;
   }
 }
 
@@ -221,13 +308,9 @@ export function signal<GValue>(
         }
       }
     }
-    let sub: ReactiveNode | undefined = activeSub;
-    while (sub !== undefined) {
-      if (sub.flags & (ReactiveFlags.Mutable | ReactiveFlags.Watching)) {
-        link(node, sub, cycle);
-        break;
-      }
-      sub = sub.subs?.sub;
+    const sub: ReactiveNode | undefined = activeSub;
+    if (sub !== undefined) {
+      link(node, sub, cycle);
     }
     return node.currentValue;
   };
@@ -235,16 +318,16 @@ export function signal<GValue>(
   return Object.assign(get, {
     [SIGNAL]: undefined,
     set: (value: GValue): void => {
-      if (activeSub !== undefined) {
-        throw new Error('Signal value cannot be set while a computation/effect is running.');
-      }
+      // if (activeSub !== undefined) {
+      //   throw new Error('Signal value cannot be set while a computation/effect is running.');
+      // }
 
       const pendingValue: GValue = node.pendingValue;
       if (!node.equal(pendingValue, (node.pendingValue = value))) {
         node.flags = ReactiveFlags.Mutable | ReactiveFlags.Dirty;
         const subs: Link | undefined = node.subs;
         if (subs !== undefined) {
-          propagate(subs);
+          propagate(subs, !!runDepth);
           if (!batchDepth) {
             flush();
           }
@@ -271,12 +354,12 @@ export function signal<GValue>(
 // COMPUTED => alias `computedOper`
 
 export function computed<GValue>(
-  fn: RunComputed<GValue>,
+  getter: RunComputed<GValue>,
   { equal = EQUAL_FUNCTION_STRICT_EQUAL }: SignalOptions<GValue> = {},
 ): ComputedSignal<GValue> {
   const node: ComputedNode<GValue> = {
     equal,
-    fn,
+    getter,
     value: undefined,
     subs: undefined,
     subsTail: undefined,
@@ -303,7 +386,7 @@ export function computed<GValue>(
         node.flags = ReactiveFlags.Mutable | ReactiveFlags.RecursedCheck;
         const prevSub: ReactiveNode | undefined = setActiveSub(node);
         try {
-          node.value = node.fn();
+          node.value = node.getter();
         } finally {
           activeSub = prevSub;
           node.flags &= ~ReactiveFlags.RecursedCheck;
@@ -328,6 +411,7 @@ export function computed<GValue>(
 export function effect(fn: RunEffect): UndoFunction {
   const node: EffectNode = {
     fn,
+    cleanup: undefined,
     subs: undefined,
     subsTail: undefined,
     deps: undefined,
@@ -339,22 +423,26 @@ export function effect(fn: RunEffect): UndoFunction {
 
   if (prevSub !== undefined) {
     link(node, prevSub, 0);
+    prevSub.flags |= ReactiveFlags.HasChildEffect;
   }
 
   try {
-    node.fn();
+    ++runDepth;
+    node.cleanup = node.fn();
   } finally {
+    --runDepth;
     activeSub = prevSub;
     node.flags &= ~ReactiveFlags.RecursedCheck;
   }
 
-  // alias: effectOper => effectScopeOper
   return (): void => {
-    if (node.flags !== ReactiveFlags.None) {
-      unwatchNode(node);
-    }
+    stopEffect(node);
   };
 }
+
+// effectScope => not implemented
+
+// trigger => not implemented
 
 // BATCH
 
@@ -387,7 +475,7 @@ export function untracked<GReturn>(fn: RunBatch<GReturn>): GReturn {
 }
 
 export function expectUntracked(): void {
-  if (activeSub === undefined) {
+  if (activeSub !== undefined) {
     throw new Error('Expected a untracked to be running.');
   }
 }

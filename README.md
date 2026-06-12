@@ -2,7 +2,8 @@
 ![npm](https://img.shields.io/npm/dm/@xstd/signal.svg)
 ![NPM](https://img.shields.io/npm/l/@xstd/signal.svg)
 ![npm type definitions](https://img.shields.io/npm/types/@xstd/signal.svg)
-![npm type definitions](https://img.shields.io/badge/coverage-100%25-green)
+
+[//]: # (![coverage]&#40;https://img.shields.io/badge/coverage-100%25-green&#41;)
 
 <picture>
   <source height="64" media="(prefers-color-scheme: dark)" srcset="https://github.com/xstd-js/website/blob/main/assets/logo/png/logo-large-dark.png?raw=true">
@@ -12,7 +13,7 @@
 
 ## @xstd/signal
 
-A Signal implementation.
+A Signal implementation based on [alien-signals](https://github.com/stackblitz/alien-signals).
 
 ## 📦 Installation
 
@@ -21,6 +22,29 @@ yarn add @xstd/signal
 # or
 npm install @xstd/signal --save
 ```
+
+## 🏭 Example
+
+```ts
+import { signal, computed, batch } from '@xstd/signal';
+
+const width = signal(10);
+const height = signal(5);
+const surface = computed(() => width() * height());
+
+effect(() => {
+  console.log(`surface: ${surface()}`);
+});
+// logs: surface: 50
+
+batch(() => {
+  // batch allows to update multiple signals at once
+  width.set(20);
+  height.set(10);
+});
+// logs: surface: 200
+```
+
 
 ## 📜 Documentation
 
