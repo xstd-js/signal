@@ -15,5 +15,5 @@ export interface Effect {
  * The _context_ function of an effect where signals are observed.
  */
 export interface RunEffect {
-  (): UndoFunction | undefined;
+  (): UndoFunction | undefined | void;
 }
