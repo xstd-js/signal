@@ -4,6 +4,7 @@ import { createReactiveSystem, type Link, type ReactiveNode } from 'alien-signal
 import type { RunBatch } from '../interfaces/batch/batch.ts';
 import type { ComputedSignal } from '../interfaces/computed/computed-signal.ts';
 import type { RunComputed } from '../interfaces/computed/constructor/computed-signal-constructor.ts';
+import type { RunEffectScope } from '../interfaces/effect-scope/effect-scope.ts';
 import type { RunEffect } from '../interfaces/effect/effect.ts';
 import type { SignalOptions } from '../interfaces/signal/constructor/signal-options.ts';
 import { SIGNAL } from '../interfaces/signal/signal.symbol.ts';
@@ -440,7 +441,34 @@ export function effect(fn: RunEffect): UndoFunction {
   };
 }
 
-// effectScope => not implemented
+// EFFECT SCOPE
+
+export function effectScope(fn: RunEffectScope): UndoFunction {
+  const node: EffectScopeNode = {
+    deps: undefined,
+    depsTail: undefined,
+    subs: undefined,
+    subsTail: undefined,
+    flags: ReactiveFlags.Mutable,
+  };
+
+  const prevSub: ReactiveNode | undefined = setActiveSub(node);
+
+  if (prevSub !== undefined) {
+    link(node, prevSub, 0);
+    prevSub.flags |= ReactiveFlags.HasChildEffect;
+  }
+
+  try {
+    fn();
+  } finally {
+    activeSub = prevSub;
+  }
+
+  return (): void => {
+    stopEffectScopeNode(node);
+  };
+}
 
 // trigger => not implemented
 
